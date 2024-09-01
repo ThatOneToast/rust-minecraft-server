@@ -2,14 +2,11 @@ use std::net::SocketAddr;
 
 use valence::prelude::*;
 use valence::{
-    network::{
-        async_trait, BroadcastToLan, HandshakeData, PlayerSampleEntry, ServerListPing,
-    },
+    network::{async_trait, BroadcastToLan, HandshakeData, PlayerSampleEntry, ServerListPing},
     text::{Color, IntoText},
     uuid::Uuid,
     MINECRAFT_VERSION,
 };
-
 
 pub struct MyCallbacks;
 
@@ -42,5 +39,4 @@ impl NetworkCallbacks for MyCallbacks {
     async fn broadcast_to_lan(&self, _shared: &SharedNetworkState) -> BroadcastToLan {
         BroadcastToLan::Enabled("Hello Valence!".into())
     }
-
 }

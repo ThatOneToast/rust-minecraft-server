@@ -5,8 +5,7 @@ use valence::{
 };
 
 mod setup;
-
-
+mod interacting;
 use valence::prelude::*;
 
 fn main() {
@@ -20,6 +19,8 @@ fn main() {
         .add_systems(Startup, setup::setup)
         .add_systems(Update, (
             setup::init_clients,
+            interacting::digging,
+            interacting::place_blocks
             )
         )
         .run();

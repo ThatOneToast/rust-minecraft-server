@@ -47,15 +47,17 @@ pub fn setup(
 
     let mut layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
 
+    
     // 100 chunks
     for z in -50..50 {
         for x in -50..50 {
             layer.chunk.insert_chunk([x, z], UnloadedChunk::new());
         }
     }
-
-    for z in 0..100 {
-        for x in 0..100 {
+    
+    
+    for z in -50..50 {
+        for x in -50..50 {
             for y in 0..100 {
                 if y == 0 || y == 1 {
                     layer.chunk.set_block([x, y, z], BlockState::BEDROCK);
