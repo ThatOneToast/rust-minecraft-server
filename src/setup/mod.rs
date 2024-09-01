@@ -1,6 +1,8 @@
 pub mod login;
 
-use valence::prelude::*;
+use std::path::PathBuf;
+
+use valence::{anvil::AnvilLevel, command::{scopes::CommandScopes, CommandScopeRegistry}, op_level::OpLevel, prelude::*};
 
 pub fn init_clients(
     mut clients: Query<
@@ -11,10 +13,12 @@ pub fn init_clients(
             &mut VisibleEntityLayers,
             &mut Position,
             &mut GameMode,
+            &mut OpLevel,
+            &mut CommandScopes,
         ),
         Added<Client>,
     >,
-    layers: Query<Entity, (With<ChunkLayer>, With<EntityLayer>)>,
+    layers: Query<Entity, With<ChunkLayer>>,
 ) {
     for (
         mut client,
@@ -23,6 +27,8 @@ pub fn init_clients(
         mut visible_entity_layers,
         mut pos,
         mut game_mode,
+        mut op_level,
+        mut permissions,
     ) in &mut clients
     {
         let layer = layers.single();
@@ -32,6 +38,10 @@ pub fn init_clients(
         visible_entity_layers.0.insert(layer);
         pos.set([10.5, 100.0, 10.5]);
         *game_mode = GameMode::Creative;
+        op_level.set(4);
+        
+        permissions.add("admin");
+        
 
         client.send_chat_message("Welcome to a Minecraft Server written in Rust!".italic());
     }
@@ -42,39 +52,28 @@ pub fn setup(
     server: Res<Server>,
     biomes: Res<BiomeRegistry>,
     dimensions: Res<DimensionTypeRegistry>,
+    mut command_scopes: ResMut<CommandScopeRegistry>,
 ) {
     let current_time = std::time::SystemTime::now();
 
-    let mut layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
+    let layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
+    let world_path_buf: PathBuf = "/Users/toast/Desktop/World".into();
+    let mut level = AnvilLevel::new(world_path_buf, &biomes);
 
-    
-    // 100 chunks
-    for z in -50..50 {
-        for x in -50..50 {
-            layer.chunk.insert_chunk([x, z], UnloadedChunk::new());
-        }
-    }
-    
-    
-    for z in -50..50 {
-        for x in -50..50 {
-            for y in 0..100 {
-                if y == 0 || y == 1 {
-                    layer.chunk.set_block([x, y, z], BlockState::BEDROCK);
-                }
-                if y < 60 {
-                    layer.chunk.set_block([x, y, z], BlockState::STONE);
-                } else if y < 99 {
-                    layer.chunk.set_block([x, y, z], BlockState::DIRT);
-                } else {
-                    layer.chunk.set_block([x, y, z], BlockState::GRASS_BLOCK);
-                }
-            }
+    for z in -8..8 {
+        for x in -8..8 {
+            let pos = ChunkPos::new(x, z);
+
+            level.ignored_chunks.insert(pos);
+            level.force_chunk_load(pos);
         }
     }
 
-    commands.spawn(layer);
+    commands.spawn((level, layer));
+    
+    command_scopes.link("admin", "command.teleport");
+    
 
     let elapsed = current_time.elapsed().unwrap();
-    println!("Up in {:.2?}", elapsed);
+    println!("Up in {:.2?}ms", elapsed.as_millis());
 }
