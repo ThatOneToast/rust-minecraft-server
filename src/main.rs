@@ -8,6 +8,7 @@ mod setup;
 mod interacting;
 use valence::prelude::*;
 
+
 fn main() {
     App::new()
         .insert_resource(NetworkSettings {

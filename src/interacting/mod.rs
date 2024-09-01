@@ -1,23 +1,43 @@
-use valence::{action::{DiggingEvent, DiggingState}, block::{BlockKind, PropName, PropValue}, interact_block::InteractBlockEvent, inventory::HeldItem, prelude::{EventReader, Inventory, Query}, BlockState, ChunkLayer, Direction, GameMode, Hand, ItemStack};
-
-
+use valence::{
+    action::{DiggingEvent, DiggingState}, block::{BlockKind, PropName, PropValue}, interact_block::InteractBlockEvent, inventory::HeldItem, log::debug, prelude::{EventReader, Inventory, Query}, BlockState, ChunkLayer, Direction, GameMode, Hand, ItemStack
+};
 
 pub fn digging(
-    clients: Query<&GameMode>,
+    mut clients: Query<(&GameMode, &mut Inventory)>,
     mut layers: Query<&mut ChunkLayer>,
     mut events: EventReader<DiggingEvent>,
 ) {
     let mut layer = layers.single_mut();
 
     for event in events.read() {
-        let Ok(game_mode) = clients.get(event.client) else {
+        let Ok((game_mode, mut inventory)) = clients.get_mut(event.client) else {
             continue;
         };
 
         if (*game_mode == GameMode::Creative && event.state == DiggingState::Start)
             || (*game_mode == GameMode::Survival && event.state == DiggingState::Stop)
         {
-            layer.set_block(event.position, BlockState::AIR);
+            let prev = layer.set_block(event.position, BlockState::AIR).unwrap();
+
+            if *game_mode == GameMode::Survival {
+                let broken_block_item = prev.state.to_kind().to_item_kind();
+
+                if let Some(slot) = inventory.first_slot_with_item_in(broken_block_item, 64, 9..45)
+                {
+                    let count = inventory.slot(slot).count;
+                    inventory.set_slot_amount(slot, count + 1);
+                } else {
+                    let stack = ItemStack::new(broken_block_item, 1, None);
+                    if let Some(empty_slot) = inventory.first_empty_slot_in(9..45) {
+                        inventory.set_slot(empty_slot, stack);
+                    } else if let Some(empty_slot) = inventory.first_empty_slot() {
+                        inventory.set_slot(empty_slot, stack);
+                    } 
+                    else {
+                        debug!("No empty slot to give item to player: {:?}", broken_block_item);
+                    }
+                }
+            }
         }
     }
 }
