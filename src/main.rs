@@ -1,53 +1,44 @@
+use setup::settings::Settings;
 use valence::{
-    app::App, command::AddCommand, prelude::{ConnectionMode, NetworkSettings}, DefaultPlugins
+    command::AddCommand, DefaultPlugins
 };
 
 mod interacting;
 mod commands;
 mod setup;
+mod server;
 mod world;
 use valence::prelude::*;
 
-
-fn display_loaded_chunk_count(mut layers: Query<&mut ChunkLayer>, mut last_count: Local<usize>) {
-    let mut layer = layers.single_mut();
-    let cnt = layer.chunks().count();
-    if *last_count != cnt {
-        *last_count = cnt;
-        layer.send_action_bar_message("Chunk Count: ".into_text() + cnt.color(Color::LIGHT_PURPLE));
-    }
-}
-
 fn main() {
-    println!("Starting...");
-    App::new()
-        .insert_resource(NetworkSettings {
-            connection_mode: ConnectionMode::Online {
-                prevent_proxy_connections: true,
-            },
-            callbacks: setup::login::MyCallbacks.into(),
-            ..Default::default()
-        })
+    
+    let settings = Settings {
+        pre_load_chunks: 16,
+        // world_path: Some("/Users/toast/Desktop/TheWorld".into()),
+        world_path: None,
+        world_max_height: 384,
+        spawn_point: DVec3::new(0.0, 81.0, 0.0),
+    };
+ 
         
-
-        .add_systems(Startup, setup::setup)
+    let mut server = server::McServer::new(settings);
+    
+    server.app
         .add_systems(Update, (
+            interacting::digging, 
+            interacting::place_blocks,
             
-                despawn_disconnected_clients,
-                
-                (setup::init_clients, world::handle_chunk_loads).chain(), 
-                display_loaded_chunk_count,
-
-                interacting::digging, 
-                interacting::place_blocks,
-                
-                
-                commands::teleport::handle,
-            ),
-        )
-        .add_plugins(DefaultPlugins) 
-        // ----- COMMANDS AFTER DEFAULT PLUGINS ------
-        .add_command::<commands::teleport::Command>()
-
-        .run();
+            
+            commands::teleport::handle,
+        ),
+    )
+    .add_plugins(DefaultPlugins) 
+    // ----- COMMANDS AFTER DEFAULT PLUGINS ------
+    .add_command::<commands::teleport::Command>()
+    
+    ;
+    
+    server.run();
+    
+    
 }

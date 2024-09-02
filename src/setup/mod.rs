@@ -1,8 +1,14 @@
 pub mod login;
+pub mod settings;
 
-use std::path::PathBuf;
-
-use valence::{anvil::AnvilLevel, command::{scopes::CommandScopes, CommandScopeRegistry}, op_level::OpLevel, prelude::*};
+use settings::Settings;
+use valence::{
+    anvil::AnvilLevel,
+    command::{scopes::CommandScopes, CommandScopeRegistry},
+    op_level::OpLevel,
+    prelude::*,
+    weather::WeatherBundle,
+};
 
 pub fn init_clients(
     mut clients: Query<
@@ -19,6 +25,7 @@ pub fn init_clients(
         Added<Client>,
     >,
     layers: Query<Entity, With<ChunkLayer>>,
+    settings: Res<Settings>,
 ) {
     for (
         mut client,
@@ -36,14 +43,14 @@ pub fn init_clients(
         layer_id.0 = layer;
         visible_chunk_layer.0 = layer;
         visible_entity_layers.0.insert(layer);
-        pos.set([10.5, 100.0, 10.5]);
+        pos.set(settings.spawn_point);
         *game_mode = GameMode::Creative;
         op_level.set(4);
-        
+
         permissions.add("admin");
-        
 
         client.send_chat_message("Welcome to a Minecraft Server written in Rust!".italic());
+        
     }
 }
 
@@ -53,27 +60,55 @@ pub fn setup(
     biomes: Res<BiomeRegistry>,
     dimensions: Res<DimensionTypeRegistry>,
     mut command_scopes: ResMut<CommandScopeRegistry>,
+    settings: Res<Settings>,
 ) {
     let current_time = std::time::SystemTime::now();
 
-    let layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
-    let world_path_buf: PathBuf = "/Users/toast/Desktop/World".into();
-    let mut level = AnvilLevel::new(world_path_buf, &biomes);
+    let mut layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
 
-    for z in -8..8 {
-        for x in -8..8 {
-            let pos = ChunkPos::new(x, z);
+    if let Some(world_path_buf) = settings.world_path.clone() {
+        let mut level = AnvilLevel::new(world_path_buf, &biomes);
 
-            level.ignored_chunks.insert(pos);
-            level.force_chunk_load(pos);
+        let num_chunks = settings.pre_load_chunks;
+
+        let current_chunk_time = std::time::SystemTime::now();
+        for z in -num_chunks..num_chunks {
+            for x in -num_chunks..num_chunks {
+                let pos = ChunkPos::new(x, z);
+                level.ignored_chunks.insert(pos);
+                level.force_chunk_load(pos);
+            }
         }
+        let elapsed_chunk = current_chunk_time.elapsed().unwrap();
+        println!(
+            "Pre-loaded: {} chunks in {:.2?}ms",
+            num_chunks * num_chunks,
+            elapsed_chunk.as_millis()
+        );
+
+        commands.spawn((layer, level));
+    } else {
+        let size = 10;
+        for z in -size..size {
+            for x in -size..size {
+                let mut chunk = UnloadedChunk::new();
+                
+                chunk.set_height(settings.world_max_height);
+                
+                for x in 0..9 { // 9x16 = new base height
+                    chunk.fill_block_state_section(x, BlockState::SANDSTONE);
+                }
+                
+                layer.chunk.insert_chunk([x, z], chunk);
+            }
+        }
+
+        commands.spawn((layer, WeatherBundle::default()));
     }
 
-    commands.spawn((level, layer));
-    
     command_scopes.link("admin", "command.teleport");
-    
 
     let elapsed = current_time.elapsed().unwrap();
     println!("Up in {:.2?}ms", elapsed.as_millis());
+    
 }
