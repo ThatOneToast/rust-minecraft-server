@@ -1,14 +1,15 @@
 pub mod login;
 pub mod settings;
 
+use std::{collections::HashMap, sync::Arc, thread, time::SystemTime};
+
+use noise::SuperSimplex;
 use settings::Settings;
 use valence::{
-    anvil::AnvilLevel,
-    command::{scopes::CommandScopes, CommandScopeRegistry},
-    op_level::OpLevel,
-    prelude::*,
-    weather::WeatherBundle,
+    anvil::AnvilLevel, command::{scopes::CommandScopes, CommandScopeRegistry}, log::info, op_level::OpLevel, prelude::*, spawn::IsFlat
 };
+
+use crate::world::{self, chunks::{ChunkWorkerState, GameState}};
 
 pub fn init_clients(
     mut clients: Query<
@@ -21,6 +22,7 @@ pub fn init_clients(
             &mut GameMode,
             &mut OpLevel,
             &mut CommandScopes,
+            &mut IsFlat,
         ),
         Added<Client>,
     >,
@@ -36,6 +38,7 @@ pub fn init_clients(
         mut game_mode,
         mut op_level,
         mut permissions,
+        mut is_flat,
     ) in &mut clients
     {
         let layer = layers.single();
@@ -46,6 +49,12 @@ pub fn init_clients(
         pos.set(settings.spawn_point);
         *game_mode = settings.default_gamemode;
         op_level.set(4);
+        
+        if settings.world_path.clone().is_some() {
+            is_flat.0 = false;
+        } else {
+            is_flat.0 = true;
+        }
 
         permissions.add("admin");
 
@@ -63,7 +72,7 @@ pub fn setup(
 ) {
     let current_time = std::time::SystemTime::now();
 
-    let mut layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
+    let layer = LayerBundle::new(ident!("overworld"), &dimensions, &biomes, &server);
 
     if let Some(world_path_buf) = settings.world_path.clone() {
         let mut level = AnvilLevel::new(world_path_buf, &biomes);
@@ -75,11 +84,24 @@ pub fn setup(
             for x in -num_chunks..num_chunks {
                 let pos = ChunkPos::new(x, z);
                 level.ignored_chunks.insert(pos);
-                level.force_chunk_load(pos);
             }
         }
+        let elapsed_add_ignore_chunks = current_chunk_time.elapsed().unwrap();
+        info!(
+            "Added {} chunks to ignored chunks in {:.2?}ms",
+            num_chunks * num_chunks,
+            elapsed_add_ignore_chunks.as_millis()
+        );
+
+        let ignored_chunks = &mut level.ignored_chunks.clone().into_iter();
+
+        let current_chunk_time = std::time::SystemTime::now();
+        for chunk in ignored_chunks {
+            level.force_chunk_load(chunk);
+        }
         let elapsed_chunk = current_chunk_time.elapsed().unwrap();
-        println!(
+
+        info!(
             "Pre-loaded: {} chunks in {:.2?}ms",
             num_chunks * num_chunks,
             elapsed_chunk.as_millis()
@@ -87,27 +109,49 @@ pub fn setup(
 
         commands.spawn((layer, level));
     } else {
-        let size = 10;
-        for z in -size..size {
-            for x in -size..size {
-                let mut chunk = UnloadedChunk::new();
-
-                chunk.set_height(settings.world_max_height);
-
-for x in 0..9 {
-                    // 9x16 = new base height
-                    chunk.fill_block_state_section(x, BlockState::SANDSTONE);
-                }
-
-                layer.chunk.insert_chunk([x, z], chunk);
-            }
+        info!("Default World generation starting!");
+        let seconds_per_day = 86_400;
+        let seed = (SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            / seconds_per_day) as u32;
+    
+        info!("current seed: {seed}");
+    
+        let (finished_sender, finished_receiver) = flume::unbounded();
+        let (pending_sender, pending_receiver) = flume::unbounded();
+    
+        let state = Arc::new(ChunkWorkerState {
+            sender: finished_sender,
+            receiver: pending_receiver,
+            density: SuperSimplex::new(seed),
+            hilly: SuperSimplex::new(seed.wrapping_add(1)),
+            stone: SuperSimplex::new(seed.wrapping_add(2)),
+            gravel: SuperSimplex::new(seed.wrapping_add(3)),
+            grass: SuperSimplex::new(seed.wrapping_add(4)),
+        });
+    
+        let current_time = std::time::SystemTime::now();
+        for _ in 0..thread::available_parallelism().unwrap().get() {
+            let state = state.clone();
+            thread::spawn(move || world::chunks::chunk_worker(state));
         }
-
-        commands.spawn((layer, WeatherBundle::default()));
+    
+        commands.insert_resource(GameState {
+            pending: HashMap::new(),
+            sender: pending_sender,
+            receiver: finished_receiver,
+        });
+    
+        commands.spawn(layer);
+        let elapsed = current_time.elapsed().unwrap();
+        info!("Chunk state up in {:.2?}ms", elapsed.as_millis());
     }
 
     command_scopes.link("admin", "command.teleport");
+    command_scopes.link("admin", "command.gamemode");
 
     let elapsed = current_time.elapsed().unwrap();
-    println!("Up in {:.2?}ms", elapsed.as_millis());
+    info!("Server up in {:.2?}ms", elapsed.as_millis());
 }
