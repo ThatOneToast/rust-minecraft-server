@@ -1,6 +1,13 @@
 use valence::{
-    action::{DiggingEvent, DiggingState}, block::{BlockKind, PropName, PropValue}, interact_block::InteractBlockEvent, inventory::HeldItem, log::debug, prelude::{EventReader, Inventory, Query}, BlockState, ChunkLayer, Direction, GameMode, Hand, ItemStack
+    action::{DiggingEvent, DiggingState},
+    block::{BlockKind, PropName, PropValue},
+    interact_block::InteractBlockEvent,
+    inventory::HeldItem,
+    log::debug,
+    prelude::{EventReader, Inventory, Query},
+    BlockState, ChunkLayer, Direction, GameMode, Hand, ItemStack,
 };
+
 
 pub fn digging(
     mut clients: Query<(&GameMode, &mut Inventory)>,
@@ -32,9 +39,11 @@ pub fn digging(
                         inventory.set_slot(empty_slot, stack);
                     } else if let Some(empty_slot) = inventory.first_empty_slot() {
                         inventory.set_slot(empty_slot, stack);
-                    } 
-                    else {
-                        debug!("No empty slot to give item to player: {:?}", broken_block_item);
+                    } else {
+                        debug!(
+                            "No empty slot to give item to player: {:?}",
+                            broken_block_item
+                        );
                     }
                 }
             }
@@ -87,6 +96,7 @@ pub fn place_blocks(
                 Direction::West | Direction::East => PropValue::X,
             },
         );
+
         layer.set_block(real_pos, state);
     }
 }

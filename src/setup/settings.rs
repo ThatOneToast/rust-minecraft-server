@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use valence::{math::DVec3, prelude::Resource};
+use valence::{math::DVec3, prelude::Resource, GameMode};
 
 
 #[derive(Clone, Debug)]
@@ -18,6 +18,8 @@ pub struct Settings {
     pub world_max_height: u32,
     /// The default spawn point for every player
     pub spawn_point: DVec3,
+    /// The default gamemode for every player
+    pub default_gamemode: GameMode,
 }
 
 impl Resource for Settings {}

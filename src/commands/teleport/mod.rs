@@ -1,10 +1,9 @@
-
-
-use valence::command_macros::Command;
 use valence::command::parsers::{EntitySelector, Vec3 as Vec3Parser};
+use valence::command_macros::Command;
 use valence::prelude::Entity;
 
-
+/// FROM VALENCE EXAMPLE
+/// https://github.com/valence-rs/valence/blob/main/examples/command.rs
 
 #[derive(Command, Debug, Clone)]
 #[paths("teleport", "tp")]
@@ -36,11 +35,11 @@ pub enum TeleportDestination {
     Target(Option<Entity>),
 }
 
+use valence::command::handler::CommandResultEvent;
 use valence::command::parsers::entity_selector::EntitySelectors;
 use valence::rand;
 use valence::rand::seq::IteratorRandom;
 use valence::{entity::living::LivingEntity, prelude::*};
-use valence::command::handler::CommandResultEvent;
 
 pub fn handle(
     mut events: EventReader<CommandResultEvent<Command>>,
@@ -138,7 +137,7 @@ pub fn handle(
             }
         }
     }
-    
+
     fn find_targets(
         living_entities: &Query<Entity, With<LivingEntity>>,
         clients: &mut Query<(Entity, &mut Client)>,
@@ -246,6 +245,4 @@ pub fn handle(
             }
         }
     }
-
 }
-

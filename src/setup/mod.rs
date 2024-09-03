@@ -44,13 +44,12 @@ pub fn init_clients(
         visible_chunk_layer.0 = layer;
         visible_entity_layers.0.insert(layer);
         pos.set(settings.spawn_point);
-        *game_mode = GameMode::Creative;
+        *game_mode = settings.default_gamemode;
         op_level.set(4);
 
         permissions.add("admin");
 
         client.send_chat_message("Welcome to a Minecraft Server written in Rust!".italic());
-        
     }
 }
 
@@ -92,13 +91,14 @@ pub fn setup(
         for z in -size..size {
             for x in -size..size {
                 let mut chunk = UnloadedChunk::new();
-                
+
                 chunk.set_height(settings.world_max_height);
-                
-                for x in 0..9 { // 9x16 = new base height
+
+for x in 0..9 {
+                    // 9x16 = new base height
                     chunk.fill_block_state_section(x, BlockState::SANDSTONE);
                 }
-                
+
                 layer.chunk.insert_chunk([x, z], chunk);
             }
         }
@@ -110,5 +110,4 @@ pub fn setup(
 
     let elapsed = current_time.elapsed().unwrap();
     println!("Up in {:.2?}ms", elapsed.as_millis());
-    
 }
