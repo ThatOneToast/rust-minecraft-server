@@ -14,6 +14,10 @@ pub struct Settings {
     ///
     /// Self * Self chunks to be loaded
     pub pre_load_chunks: i32,
+    /// The number of threads to use for chunk loading
+    ///
+    /// Default will be half of the number of available cores
+    pub chunk_thread_count: Option<usize>,
     /// The path to the world directory;
     /// Path must contain a subdirectory of "region"
     ///

@@ -1,3 +1,5 @@
+use std::thread;
+
 use setup::settings::Settings;
 
 mod commands;
@@ -9,9 +11,11 @@ use valence::{command::AddCommand, prelude::*};
 
 fn main() {
     let settings = Settings {
-        pre_load_chunks: 50,
-        // world_path: Some("/Users/toast/Documents/RustWorld".into()),
+        pre_load_chunks: 4,
         world_path: None,
+        // world_path: Some("/Users/toast/Documents/RustWorld".into()),
+        chunk_thread_count: Some(thread::available_parallelism().unwrap().get()),
+        // chunk_thread_count: Some(4),
         world_max_height: 384,
         spawn_point: DVec3::new(0.0, 81.0, 0.0),
         default_gamemode: GameMode::Creative,

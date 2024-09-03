@@ -133,7 +133,7 @@ pub fn setup(
         });
     
         let current_time = std::time::SystemTime::now();
-        for _ in 0..thread::available_parallelism().unwrap().get() {
+        for _ in 0..settings.chunk_thread_count.unwrap_or(thread::available_parallelism().unwrap().get() / 2) {
             let state = state.clone();
             thread::spawn(move || world::chunks::chunk_worker(state));
         }
